@@ -1,0 +1,307 @@
+LangChain lets you build applications that can:
+
+📄 Read and analyze documents (PDFs, Word files, websites)
+🔍 Search databases or the web
+💬 Build chatbots with conversation memory
+🛠️ Call external tools and APIs
+🤖 Create AI agents that can perform multi-step tasks
+📊 Retrieve relevant information before answering (RAG—Retrieval-Augmented Generation)
+
+
+Example
+
+Suppose you ask:
+
+"Summarize the sales trends from last quarter's PDF report."
+
+Without LangChain:
+
+The LLM doesn't know your PDF exists.
+
+With LangChain:
+
+Load the PDF.
+Split it into chunks.
+Store embeddings in a vector database.
+Retrieve the most relevant sections.
+Send those sections to the LLM.
+Generate an accurate summary.
+
+
+
+  ------------------------------------ SPLITTERS ---------------------------------
+Real-life example
+
+Imagine the PDF says:
+
+"The Indian government announced several important measures. These measures are designed to improve economic growth and create employment opportunities."
+
+If we split exactly in the middle, we might get:
+
+Chunk 1:
+"The Indian government announced several important measures.
+These measures are designed to improve"
+
+and:
+
+Chunk 2:
+"economic growth and create employment opportunities."
+
+The second chunk loses some context.
+
+With overlap, some of the previous text is repeated:
+
+Chunk 1:
+"The Indian government announced several important measures.
+These measures are designed to improve"
+
+Chunk 2:
+"These measures are designed to improve economic growth
+and create employment opportunities."
+
+
+
+---------------------------------------------- EMBEDDING -----------------------------------------------------
+
+An embedding converts text into a list of numbers (a vector) that represents the meaning of the text.
+
+For example, imagine you have a chunk:
+
+"The government increased spending on education."
+
+An embedding model might convert it into something like:
+
+[0.21, -0.45, 0.78, 0.13, ...]
+
+The actual embedding will contain many more numbers; this is just an example.
+
+The important idea is:
+
+Text → numbers representing meaning
+
+Why do we need this?
+
+Suppose your PDF contains:
+
+"The government allocated more funds to schools."
+
+And you ask your RAG application:
+
+"How much money was given to education?"
+
+Even though the question and PDF text don't use exactly the same words, their meaning is related.
+
+Embeddings help the system identify that relationship.
+
+
+-----> documents[0].metadata
+
+Document
+│
+├── page_content → actual text
+│
+└── metadata     → information ABOUT that text
+
+documents[0].page_content
+
+➡️ gives you the actual text from Page 1.
+
+Whereas:
+
+documents[0].metadata
+
+➡️ gives you information about Page 1.
+
+---------------------------- Why is metadata useful in RAG? --------------------------
+
+Suppose your RAG system retrieves an answer from a particular chunk.
+
+The chunk can contain:
+
+page_content:
+"The government allocated ..."
+
+metadata:
+{
+    "source": "budget.pdf",
+    "page": 42
+}
+
+Your application can then tell the user:
+
+"This information came from page 43 of the PDF."
+
+---------------- So page_content = the information 📄
+metadata = information about where/how that information came from 🏷️ ------------------------
+
+
+if you use:
+
+--   chunks[0]
+
+you get the whole Document object, which contains both:
+
+page_content → the actual text of the chunk
+metadata → information about the source/page
+
+Conceptually:
+
+chunks[0]
+   │
+   ├── page_content → "Government of India Budget..."
+   │
+   └── metadata
+          ├── source → "budget.pdf"
+          └── page → 0
+
+-------- ACTUAL EMBEDDING CODE WORKS LIKE THIS ----------
+
+                 Embedding Model
+                       ↓
+Text ─────────→ all-MiniLM-L6-v2 ─────────→ Numbers'
+
+"The government increased education spending"
+                    ↓
+              Embedding model
+                    ↓
+[0.023, -0.182, 0.451, ...]
+
+
+----- normalize_embeddings=True
+
+basically means:
+
+"Normalize the vectors so they are ready for similarity comparisons."
+
+
+
+-- in embedding.shape -----
+94 rows → 94 chunks/vectors
+384 columns → 384 numbers describing each vector
+
+
+
+--------------------------------------- PINECONNE CONNECT --------------------------------------------------
+
+Pinecone in RAG
+What is Pinecone?
+
+Pinecone is a vector database used in RAG (Retrieval-Augmented Generation) applications.
+
+In our RAG project, we convert the text chunks from a PDF into embeddings (vectors) using an embedding model such as all-MiniLM-L6-v2.
+
+These vectors need to be stored somewhere so that we can later search for the information relevant to a user's question. Pinecone stores these vectors and allows us to perform fast similarity searches.
+
+Why do we use Pinecone?
+
+Suppose we have a PDF containing a large amount of information.
+
+The process is:
+
+PDF
+ ↓
+Load PDF
+ ↓
+Split into chunks
+ ↓
+Convert chunks into embeddings
+ ↓
+Store embeddings in Pinecone
+
+Later, when a user asks a question:
+
+User Question
+      ↓
+Convert question into an embedding
+      ↓
+Search Pinecone
+      ↓
+Find the most relevant chunks
+      ↓
+Send relevant chunks to the LLM
+      ↓
+Generate Answer
+
+Pinecone is especially useful when our application has thousands or millions of vectors, because it is designed for efficient vector similarity search.
+
+What does Pinecone store?
+
+Pinecone primarily stores vectors, along with information such as IDs and metadata.
+
+For example:
+
+Vector:
+[0.12, -0.45, 0.31, ... 384 numbers]
+
+Metadata:
+{
+    "source": "budget.pdf",
+    "page": 5
+}
+
+The vector represents the meaning of a piece of text, while the metadata can tell us where that text came from.
+
+Why do we convert text into vectors?
+
+Computers cannot directly perform mathematical similarity calculations on normal sentences in the same way they can with numerical vectors.
+
+For example:
+
+"The government increased education spending."
+
+is converted into a numerical vector:
+
+[0.21, -0.45, 0.78, 0.13, ...]
+
+The embedding represents the semantic meaning of the text.
+
+Similarly, when the user asks:
+
+"How much did the government spend on education?"
+
+the question is also converted into a vector.
+
+Pinecone can then compare the question vector with the stored vectors and find the chunks that are semantically most similar.
+
+Example
+
+Suppose our PDF contains 100,000 chunks.
+
+After embedding:
+
+100,000 chunks
+       ↓
+100,000 vectors
+       ↓
+Stored in Pinecone
+
+The user asks:
+
+"What did the government announce about education?"
+
+The question is converted into a vector:
+
+Question
+   ↓
+Embedding Model
+   ↓
+Question Vector
+
+Pinecone searches the stored vectors and may find:
+
+Chunk 17 → Education spending
+Chunk 43 → School infrastructure
+Chunk 58 → Education schemes
+
+These relevant chunks are then sent to the LLM.
+
+
+--------------------- Pinecone searches for vectors similar to the question vector. 
+                      Your RAG application then uses the retrieved vector's associated metadata/content 
+                      to obtain the relevant text chunks, which are given to the LLM. --------------------------------------
+                      
+🧠 Embedding model: Converts text/question into vectors
+🌲 Pinecone: Finds the most relevant vectors/chunks
+🤖 Groq LLM: Uses those chunks to produce the final answer
+
+That's the core of the Retrieval part of RAG. ✅
